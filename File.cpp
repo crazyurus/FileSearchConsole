@@ -104,7 +104,7 @@ void GetFileSize(unsigned long size)
     PrintAndSave(pre[i], "%cB  ");  //输出转换后的结果
 }
 
-void Search(char *path, char *name = "*.*")
+void Search(char *path, char *name = "*.*", bool children = false)
 {   //文件搜索算法（核心）
     HANDLE hFile;  //搜索句柄
     WIN32_FIND_DATA FileInfo;  //搜索返回的文件信息
@@ -134,12 +134,12 @@ void Search(char *path, char *name = "*.*")
                 PrintAndSave(path, " %s\n");  //输出文件或文件夹的位置信息
                 count++;
             }
-            if ((FileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))  //判断当前是否为文件夹
+            if ((FileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && children)  //判断当前是否为文件夹
             {
                 strcpy(nextPath, path);
                 strcat(nextPath, "\\");
                 strcat(nextPath, curFileName);  //执行nextPath=path+"\\"+FileInfo.cFileName，形成子文件夹路径
-                Search(nextPath, name);  //递归搜索子文件夹
+                Search(nextPath, name, children);  //递归搜索子文件夹
             }
         }
         FindNextFile(hFile, &FileInfo);  //查找下一个文件
@@ -165,14 +165,16 @@ void DrawFront(int n, bool noNextLine = false)
     }
 }
 
-void DrawWord(char *word, int align = 0)
+void DrawWord(char *word, int align = 0, int number = 0)
 {   //绘制文字，align=0表示居中，align=1表示左对齐
-    int i = (79 - strlen(word) - 18) / 2;
+	int length = strlen(word) + (number == 0 ? 0 : 2);
+    int i = (79 - length - 18) / 2;
     DrawFront(1, true);
     if (align == 1) i = 5;
     DrawLine(i, " ", true);
-    printf("%s", word);
-    if (align == 1) i = 59 - strlen(word) - 4;
+    if (number == 0) printf("%s", word);
+    else printf("%2d%s", number, word);
+    if (align == 1) i = 59 - length - 4;
     DrawLine(i, " ", true);
     printf("%s\n", VBORDER);
 }
@@ -206,14 +208,15 @@ void DrawEnd()
     printf("┛\n");
 }
 
-void ShowWelcome()
+void ShowWelcome(int second)
 {   //显示欢迎界面
+    if (second == 0) return;
+
     DrawLine(2, "\n");
     DrawHead();
     DrawSplit();
     DrawFront(1);
-    DrawWord("作者：廖星");
-    DrawWord("班级：软件工程ZY1201");
+    DrawWord("作者：Crazy Urus");
     DrawFront(1);
     DrawSplit();
     DrawFront(1);
@@ -223,20 +226,21 @@ void ShowWelcome()
     DrawWord("            多个字符，?代替1个字符。", 1);
     DrawWord("          3.本程序支持将搜索结果保存为文本文档。", 1);
     DrawFront(1);
-    DrawWord("10秒后将自动进入程序界面……", 1);
+    DrawWord("秒后将自动进入程序界面……", 1, second);
     DrawFront(1);
     DrawEnd();
-    Sleep(10000);  //等待10秒
+    Sleep(1000);  //等待1秒
     system("cls");
     system("color F0");
+    ShowWelcome(second - 1);
 }
 
 int main()
 {
     int err = 0;  //记录搜索返回值
-    char choose, path[MAX_PATH], name[MAX_PATH];  //存储输入的路径和文件名
+    char choose, path[MAX_PATH], name[MAX_PATH], children;  //存储输入的路径和文件名
     system("color F0");  //设置控制台颜色
-    ShowWelcome();  //显示欢迎界面
+    ShowWelcome(10);  //显示欢迎界面
     PrintAndSave("文件搜索（控制台版）", "%s\n", 3, false);
     DrawLine();
     fp = fopen("C:\\result.txt", "w");  //将result.txt文件清空
@@ -250,10 +254,14 @@ int main()
     } while (err = access(path, 0));  //判断输入的路径是否存在
     printf("请输入文件名称(包含扩展名，跳过请填*):");
     scanf("%s", name);
+    printf("是否在子文件夹中递归查找？ (Y/N) ");
+    getchar();  //将换行符跳过
+    scanf("%c", &children);
     DrawLine();
     fprintf(fp, "这是在 %s 中搜索 %s 的结果：\n\n", path, name);
     printf("正在为您查找，请稍候……\n");
-    Search(path, name);  //搜索文件
+    if (children == 'Y' || children == 'y') Search(path, name, true);  //搜索文件
+    else Search(path, name, false);  //搜索文件
     DrawLine(2, HBORDER, true);
     printf("┻");
     DrawLine(36);
@@ -264,7 +272,7 @@ int main()
         printf("是否查看已保存到 C:\\result.txt 的搜索报告？ (Y/N)  ");
         getchar();  //将换行符跳过
         scanf("%c", &choose);
-        if(choose == 'Y' || choose == 'y') system("notepad C:\\result.txt");
+        if (choose == 'Y' || choose == 'y') system("notepad C:\\result.txt");
     }
     else printf("未找到符合要求的文件！\n");  //count=0表示未找到文件
     DrawLine();
